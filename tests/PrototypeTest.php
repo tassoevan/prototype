@@ -7,8 +7,8 @@ class PrototypeTest extends PHPUnit_Framework_TestCase
 		$obj = new Prototype();
 		$obj->a = 'Test';
 		$obj->b = 12;
-		$obj->c = function(Prototype $that) {
-			return $that->a . ' ' . $that->b;
+		$obj->c = function() use($obj) {
+			return $obj->a . ' ' . $obj->b;
 		};
 
 		$this->assertEquals('Test 12', $obj->c());
@@ -16,6 +16,14 @@ class PrototypeTest extends PHPUnit_Framework_TestCase
 		$this->assertEquals(null, $obj->a);
 		$this->assertFalse(isset($obj->a));
 		$this->assertTrue(isset($obj->b));
+
+		$obj = new Prototype(function() {
+			return 'invoked as function';
+		});
+
+		$this->assertEquals('invoked as function', $obj());
+
+		$this->assertInstanceOf('Iterator', $obj->getIterator());
 	}
 
 	public function testInvalidCall()
@@ -25,6 +33,14 @@ class PrototypeTest extends PHPUnit_Framework_TestCase
 		$obj = new Prototype();
 		$obj->a = 'Test';
 		$obj->a();
+	}
+
+	public function testInvalidInvoke()
+	{
+		$this->setExpectedException('BadMethodCallException');
+
+		$obj = new Prototype();
+		$obj();
 	}
 
 	public function testSerialization()

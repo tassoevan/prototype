@@ -5,8 +5,8 @@ Simple prototype-based programming in PHP
 
 [![Build Status](https://secure.travis-ci.org/tassoevan/prototype.png)](http://travis-ci.org/tassoevan/prototype)
 
-Version: 1.0.0<br />
-Release date: 2013-06-10<br />
+Version: 1.1.0<br />
+Release date: 2013-07-15<br />
 Project state: stable<br />
 Released under the MIT license
 
@@ -32,10 +32,32 @@ like the native `stdClass`. The key difference between `Prototype` and `stdClass
 the last one don't treats callable arguments and closures very well. You can call closures
 in a `Prototype` instance exactly as they are methods of object.
 
-    <?php
+```php
+<?php
 
-    $obj = new Prototype();
-    $obj->a = function($x) {
-    	return $x + 2;
-    };
-    $obj->a(2); // returns 4
+$obj = new Prototype();
+$obj->a = function($x) {
+	return $x + 2;
+};
+
+$obj->a(2); // returns 4
+```
+
+Also, you can use `Prototype` instances as closures too:
+
+```php
+<?php
+
+$obj = new Prototype(function($x) {
+     return $x + 2;
+});
+
+$obj(2); // returns 4
+```
+
+Release notes
+-------------
+* Version 1.1.0
+  * Added support for deal with the prototypes as closures
+  * Added IteratorAggregate interface
+  * Remove restriction to closures; now, all callable types are supported
