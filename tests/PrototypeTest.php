@@ -8,6 +8,7 @@ class PrototypeTest extends PHPUnit_Framework_TestCase
 		$obj->a = 'Test';
 		$obj->b = 12;
 		$obj->c = function() use($obj) {
+			static $j;
 			return $obj->a . ' ' . $obj->b;
 		};
 
@@ -24,6 +25,9 @@ class PrototypeTest extends PHPUnit_Framework_TestCase
 		$this->assertEquals('invoked as function', $obj());
 
 		$this->assertInstanceOf('Iterator', $obj->getIterator());
+
+		$obj = new Prototype(Prototype::closure('strtoupper'));
+		$this->assertEquals('TEST', $obj('test'));
 	}
 
 	public function testInvalidCall()
