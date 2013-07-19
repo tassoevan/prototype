@@ -5,9 +5,9 @@ Simple prototype-based programming in PHP
 
 [![Build Status](https://secure.travis-ci.org/tassoevan/prototype.png)](http://travis-ci.org/tassoevan/prototype)
 
-Version: 1.2.0<br />
-Release date: 2013-07-18<br />
-Project state: stable<br />
+Version: 1.2.1<br />
+Release date: 2013-07-19<br />
+Project state: release candidate<br />
 Released under the MIT license
 
 Credits: Tasso Evangelista (tassoevan@tassoevan.me)
@@ -57,11 +57,11 @@ $obj(2); // returns 4
 
 Release notes
 -------------
-* Version 1.2.0
+* Version 1.2.1
   * Only closures are acceptable for calls
   * Added method Prototype::closure() to transform callables in closures
-  * Added method Prototype::serializeClosure() to serialize closures
-  * Removed closure pool for prototype serialization
+  * Removed serialization and iteration support
+  * Added support for normal, dynamic and lazy properties
 
 * Version 1.1.0
   * Added support for deal with the prototypes as closures

@@ -2,6 +2,7 @@
     "name": "tasso/prototype",
     "type": "library",
     "description": "Simple prototype-based programming for PHP",
+    "version": "1.2.1",
     "keywords": ["prototype"],
     "homepage": "http://github.com/tassoevan/prototype",
     "license": "MIT",
@@ -12,7 +13,6 @@
             "homepage": "http://tassoevan.me/"
         }
     ],
-    "version": "1.2.0",
     "minimum-stability": "stable",
     "require": {
         "php": ">=5.3.0"

@@ -6,7 +6,7 @@
 * @copyright 2013 Tasso Evangelista
 * @link http://github.com/tassoevan/prototype
 * @license http://github.com/tassoevan/prototype/LICENSE
-* @version 1.2.0
+* @version 1.2.1
 * @package Prototype
 *
 * MIT LICENSE
@@ -35,139 +35,117 @@
  * The <code>Prototype</code> class represents objects that hava properties dinamicly modified.
  * @author Tasso Evangelista
  */
-class Prototype implements \ArrayAccess, \Serializable, \IteratorAggregate
+class Prototype implements \ArrayAccess
 {
-	private static function findToken(array $tokens, $needle, $start = 0, $end = PHP_INT_MAX)
+	private static $accessClosures;
+
+	/**
+	 * Initialize the internal access closures, used to get, set and call properties from prototypes
+	 */
+	private static function initiliazeAccessClosures()
 	{
-		$idx = false;
-		for ( $i = $start, $end = min($end, count($tokens)); $i < $end; ++$i ) {
-			if ( (is_int($needle) && is_array($tokens[$i]) && $tokens[$i][0] === $needle) ||
-				is_string($needle) && is_string($tokens[$i]) && $tokens[$i] === $needle ) {
-				$idx = $i;
-				break;
-			}
+		if ( empty(self::$accessClosures) ) {
+			self::$accessClosures = array(
+				'normal' => array(
+					'get' => function(\Prototype $obj, &$value) {
+						return $value;
+					},
+					'set' => function(\Prototype $obj, &$variable, &$value) {
+						$variable = $value;
+					},
+					'call' => function(\Prototype $obj, $propertyName, &$value, array &$args) {
+						if ( $value instanceof \Closure )
+							return call_user_func_array($value, $args);
+						else
+							throw new BadMethodCallException(sprintf('%s is not a closure or prototype', $propertyName));
+					}
+				),
+
+				'dynamic' => array(
+					'get' => function(\Prototype $obj, &$value) {
+						$closure = &$value[0];
+
+						if ( $closure instanceof \Closure )
+							return $closure();
+						else
+							return null;
+					},
+					'set' => function(\Prototype $obj, &$variable, &$value) {
+						$closure = $variable[1];
+						if ( $closure instanceof \Closure )
+							$closure($value);
+					},
+					'call' => function(\Prototype $obj, $propertyName, &$value, array &$args) {
+						if ( $value[2] instanceof \Closure )
+							return call_user_func_array($value[2], $args);
+						else
+							throw new BadMethodCallException(sprintf('%s is not closure or prototype', $propertyName));
+					}
+				),
+
+				'lazy' => array(
+					'get' => function(\Prototype $obj, &$value) {
+						if ( $value instanceof \Closure )
+							$value = array($value());
+						
+						return $value[0];
+					},
+					'set' => function(\Prototype $obj, &$variable, &$value) {
+						$variable = array($value);
+					},
+					'call' => function(\Prototype $obj, $propertyName, &$value, array &$args) {
+						if ( $value instanceof \Closure )
+							$value = array($value);
+
+						if ( $value[0] instanceof \Closure )
+							return call_user_func_array($value[0], $args);
+						else
+							throw new BadMethodCallException(sprintf('%s is not closure or prototype', $propertyName));
+					}
+				)
+			);
 		}
-
-		return $idx;
-	}
-
-	private static function getNesting(&$matches, array $tokens, $begin = '{', $end = '}', $offset = 0)
-	{
-		$level = 0;
-		$start = false;
-
-		for ( $i = $offset, $count = count($tokens); $i < $count; ++$i ) {
-			if ( is_array($tokens[$i]) ? ($tokens[$i][0] === $begin) : ($tokens[$i] === $begin) ) {
-				++$level;
-				if ( $start === false )
-					$start = $i + 1;
-			}
-			elseif ( is_array($tokens[$i]) ? ($tokens[$i][0] === $end) : ($tokens[$i] === $end) ) {
-				if ( $start === false )
-					break;
-
-				if ( --$level == 0 ) {
-					$matches = array(
-						'tokens' => array_slice($tokens, $start, $i - $start),
-						'start' => $start,
-						'end' => $i - 1
-					);
-					return true;
-				}
-			}
-		}
-
-		$matches = null;
-		return false;
 	}
 
 	/**
-	 * Serializes a closure as string
-	 * @param \Closure $closure
-	 * @return string
+	 * Returns a pair containing <code>normal</code> access closures and the value.
+	 * <code>Normal</code> access closures performs simple data storage
+	 * @param mixed $value
+	 * @return array
 	 */
-	public static function serializeClosure(\Closure $closure) {
-		$ref = new ReflectionFunction($closure);
-		$tokens = token_get_all(file_get_contents($ref->getFileName()));
+	public static function normal($value)
+	{
+		self::initiliazeAccessClosures();
+		return array(self::$accessClosures['normal'], $value);
+	}
 
-		$tokensCount = count($tokens);
-		$start = false;
-		$end = $tokensCount;
+	/**
+	 * Returns a pair containing <code>dynamic</code> access closures and the value.
+	 * <code>Dynamic</code> access closures always execute the passed <code>get</code>,
+	 * <code>set</code> and <code>call</code> closures/prototypes for dynamic value
+	 * creation, value storage and function call, respectively
+	 * @param Closure|Prototype $get
+	 * @param Closure|Prototype $set
+	 * @param Closure|Prototype $call
+	 * @return array
+	 */
+	public static function dynamic($get, $set = null, $call = null)
+	{
+		self::initiliazeAccessClosures();
+		return array(self::$accessClosures['dynamic'], array($get, $set, $call));
+	}
 
-		for ( $i = 0; $i < $tokensCount; ++$i ) {
-			if ( is_array($tokens[$i]) && $tokens[$i][0] === T_FUNCTION && $tokens[$i][2] == $ref->getStartLine() ) {
-				$start = $i;
-				break;
-			}
-		}
-
-		for ( $i = $start; $i < $tokensCount; ++$i ) {
-			if ( is_array($tokens[$i]) && $tokens[$i][2] > $ref->getEndLine() ) {
-				$end = $i - 1;
-				break;
-			}
-		}
-
-		$tokens = array_slice($tokens, $start, $end);
-
-		$replaceToken = function($a) { return is_array($a) ? $a[1] : $a; };
-		
-		while ( count($tokens) > 0 && $tokens[0][0] === T_FUNCTION ) {
-
-			if ( !self::getNesting($parameters, $tokens, '(', ')') ) // does not have parameters
-				die('fuck');
-
-			if ( !self::getNesting($body, $tokens, '{', '}', $parameters['end']) ) // does not have body
-				break;
-
-			if ( ($use_idx = self::findToken($tokens, T_USE, $parameters['end'] + 2, $body['start'] - 2)) !== false )
-				self::getNesting($use, $tokens, '(', ')', $use_idx);
-
-			if ( self::findToken($tokens, T_STRING, 0, $parameters['start']) === false ) { // is anonymous function
-				while ( self::getNesting($tmp, $body['tokens'], T_STATIC, ';') ) {
-					$tmp['start']--;
-					$tmp['end']++;
-					array_splice($body['tokens'], $tmp['start'], $tmp['end']);
-				}
-
-				if ( !isset($use) )
-					$use = array();
-
-				$closure = compact('parameters', 'use', 'body');
-
-				$variables = $ref->getStaticVariables();
-
-				$source = "return function(" . implode('', array_map($replaceToken, $closure['parameters']['tokens'])) .  ") ";
-				if ( !empty($closure['use']['tokens']) ) {
-					$useParams = array_map('trim', explode(',', implode('', array_map($replaceToken, $closure['use']['tokens']))));
-
-					foreach ( $useParams as $param ) {
-						if ( $param[0] == '$')
-							$source = "$param = " . var_export($variables[substr($param, 1)], true) . ";\n$source";
-					}
-
-					$source .= "use(" . implode(', ', $useParams) .  ") ";
-				}
-					
-				$source .= "{" .  implode('', array_map($replaceToken, $closure['body']['tokens'])) . "};";
-
-				$test = function($ref) use($source) {
-					$newClosure = eval($source);
-					$newRef = new ReflectionFunction($newClosure);
-
-					return ( array_map(function($a) { return $a->getName(); }, $newRef->getParameters()) == array_map(function($a) { return $a->getName(); }, $newRef->getParameters()) );
-				};
-
-				if ( $test($ref) )
-					return $source;
-			}
-			
-			$function_idx = self::findToken($tokens, T_FUNCTION, $body['end'] + 2);
-
-			$tokens = $function_idx === false ? array() : array_slice($tokens, $function_idx);
-		}
-
-		return null;
+	/**
+	 * Returns a pair containing <code>lazy</code> access closures and the value.
+	 * <code>lazy</code> access closures grants that stored data only will be
+	 * generated on first access to property, performing lazy loading
+	 * @param Closure $generator
+	 * @return array
+	 */
+	public static function lazy(\Closure $generator)
+	{
+		self::initiliazeAccessClosures();
+		return array(self::$accessClosures['lazy'], $generator);
 	}
 
 	/**
@@ -182,6 +160,21 @@ class Prototype implements \ArrayAccess, \Serializable, \IteratorAggregate
 		};
 	}
 
+	/**
+	 * Creates a array of data generated by iterate over prototype properties
+	 * @param Prototype $prototype
+	 * @return array
+	 */
+	public static function data(Prototype $prototype)
+	{
+		$ret = array();
+
+		foreach ( $prototype->properties as $key => $value )
+			$ret[$key] = $prototype->offsetGet($key);
+
+		return $ret;
+	}
+
 	private $invokable;
 	private $properties = array();
 
@@ -191,87 +184,95 @@ class Prototype implements \ArrayAccess, \Serializable, \IteratorAggregate
 	 */
 	public function __construct(\Closure $invokable = null)
 	{
+		self::initiliazeAccessClosures();
 		$this->invokable = $invokable;
 	}
 
 	/**
 	 * @see ArrayAccess::offsetExists()
 	 */
-	public function offsetExists($property)
+	public function offsetExists($propertyName)
 	{
-		return isset($this->properties[$property]);
-	}
-
-	/**
-	 * @see ArrayAccess::offsetGet()
-	 */
-	public function offsetGet($property)
-	{
-		return $this->offsetExists($property) ? $this->properties[$property] : null;
-	}
-
-	/**
-	 * @see ArrayAccess::offsetSet()
-	 */
-	public function offsetSet($property, $value)
-	{
-		if ( $property === '#' )
-			throw new \LogicException("invalid property name: '#'");
-
-		$this->properties[$property] = $value;
+		return isset($this->properties[$propertyName]);
 	}
 
 	/**
 	 * @see ArrayAccess::offsetUnset()
 	 */
-	public function offsetUnset($property)
+	public function offsetUnset($propertyName)
 	{
-		unset($this->properties[$property]);
+		unset($this->properties[$propertyName]);
+	}
+
+	/**
+	 * @see ArrayAccess::offsetGet()
+	 */
+	public function offsetGet($propertyName)
+	{
+		$accessClosure = $this->properties[$propertyName][0]['get'];
+		return $accessClosure($this, $this->properties[$propertyName][1]);
+	}
+
+	/**
+	 * @see ArrayAccess::offsetSet()
+	 */
+	public function offsetSet($propertyName, $value)
+	{
+		$valueIsPrototypeSet = is_array($value) && count($value) == 2 && isset($value[0]) && in_array($value[0], self::$accessClosures, true);
+
+		if ( $valueIsPrototypeSet )
+			$this->properties[$propertyName] = $value;
+		elseif ( isset($this->properties[$propertyName]) ) {
+			$accessClosure = &$this->properties[$propertyName][0]['set'];
+			$accessClosure($this, $this->properties[$propertyName][1], $value);
+		}
+		else
+			$this->properties[$propertyName] = Prototype::normal($value);
 	}
 
 	/**
 	 * @see __isset()
 	 */
-	public function __isset($property)
+	public function __isset($propertyName)
 	{
-		return $this->offsetExists($property);
-	}
-
-	/**
-	 * @see __get()
-	 */
-	public function __get($property)
-	{
-		return $this->offsetGet($property);
-	}
-
-	/**
-	 * @see __set()
-	 */
-	public function __set($property, $value)
-	{
-		$this->offsetSet($property, $value);
+		return $this->offsetExists($propertyName);
 	}
 
 	/**
 	 * @see __unset()
 	 */
-	public function __unset($property)
+	public function __unset($propertyName)
 	{
-		$this->offsetUnset($property);
+		$this->offsetUnset($propertyName);
+	}
+
+	/**
+	 * @see __get()
+	 */
+	public function __get($propertyName)
+	{
+		return $this->offsetGet($propertyName);
+	}
+
+	/**
+	 * @see __set()
+	 */
+	public function __set($propertyName, $value)
+	{
+		$this->offsetSet($propertyName, $value);
 	}
 
 	/**
 	 * @see __call()
 	 */
-	public function __call($property, array $args)
+	public function __call($propertyName, array $args)
 	{
-		$closure = $this->offsetGet($property);
+		$accessClosure = &$this->properties[$propertyName][0]['call'];
 
-		if ( $closure instanceof \Closure )
-			return call_user_func_array($closure, $args);
-		else
-			throw new BadMethodCallException(sprintf('%s is not a closure', $property));
+		if ( !isset($accessClosure) )
+			throw new BadMethodCallException(sprintf('%s is undefined', $propertyName));
+
+		return $accessClosure($this, $propertyName, $this->properties[$propertyName][1], $args);
 	}
 
 	/**
@@ -284,49 +285,4 @@ class Prototype implements \ArrayAccess, \Serializable, \IteratorAggregate
 		else
 			throw new BadMethodCallException('Prototype is not invokable');
 	}
-
-	/**
-	 * @see Serializable::serialize()
-	 */
-	public function serialize()
-	{
-		$properties = array();
-		$properties['#'] = $this->invokable instanceof Closure ? static::serializeClosure($this->invokable) : null;
-
-		foreach ( $this->properties as $name => $value ) {
-			if ( $value instanceof Closure )
-				$properties["closure_$name"] = static::serializeClosure($value);
-			else
-				$properties["mixed_$name"] = serialize($value);
-		}
-
-		return serialize($properties);
-	}
-
-	/**
-	 * @see Serializable::unserialize()
-	 */
-	public function unserialize($serialized)
-	{
-		$properties = unserialize($serialized);
-		$this->properties = array();
-
-		foreach ( $properties as $name => $value ) {
-			if ( $name == '#' )
-				$this->invokable = empty($value) ? null : eval($value);
-			elseif ( substr($name, 0, strlen('closure_')) == 'closure_' )
-				$this->properties[substr($name, strlen('closure_'))] = eval($value);
-			elseif ( substr($name, 0, strlen('mixed_')) == 'mixed_' )
-				$this->properties[substr($name, strlen('mixed_'))] = unserialize($value);
-		}
-	}
-
-	/**
-	 * @see IteratorAggregate::getIterator()
-	 */
-	public function getIterator()
-	{
-		return new \ArrayIterator($this);
-	}
-
 }
