@@ -2,7 +2,7 @@
     "name": "tasso/prototype",
     "type": "library",
     "description": "Simple prototype-based programming for PHP",
-    "version": "1.2.1",
+    "version": "1.2.2",
     "keywords": ["prototype"],
     "homepage": "http://github.com/tassoevan/prototype",
     "license": "MIT",
@@ -24,5 +24,10 @@
         "psr-0": {
             "": "classes/"
         }
+    },
+    "extra": {
+	"branch-alias": {
+	    "dev-master": "1.2.0-dev"
+	}
     }
 }

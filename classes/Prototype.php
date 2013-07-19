@@ -6,7 +6,7 @@
 * @copyright 2013 Tasso Evangelista
 * @link http://github.com/tassoevan/prototype
 * @license http://github.com/tassoevan/prototype/LICENSE
-* @version 1.2.1
+* @version 1.2.2
 * @package Prototype
 *
 * MIT LICENSE
@@ -54,7 +54,7 @@ class Prototype implements \ArrayAccess
 						$variable = $value;
 					},
 					'call' => function(\Prototype $obj, $propertyName, &$value, array &$args) {
-						if ( $value instanceof \Closure )
+						if ( $value instanceof \Closure || $value instanceof \Prototype )
 							return call_user_func_array($value, $args);
 						else
 							throw new BadMethodCallException(sprintf('%s is not a closure or prototype', $propertyName));
@@ -76,7 +76,7 @@ class Prototype implements \ArrayAccess
 							$closure($value);
 					},
 					'call' => function(\Prototype $obj, $propertyName, &$value, array &$args) {
-						if ( $value[2] instanceof \Closure )
+						if ( $value[2] instanceof \Closure || $value[2] instanceof \Prototype )
 							return call_user_func_array($value[2], $args);
 						else
 							throw new BadMethodCallException(sprintf('%s is not closure or prototype', $propertyName));
@@ -94,10 +94,10 @@ class Prototype implements \ArrayAccess
 						$variable = array($value);
 					},
 					'call' => function(\Prototype $obj, $propertyName, &$value, array &$args) {
-						if ( $value instanceof \Closure )
+						if ( $value instanceof \Closure || $value instanceof \Prototype )
 							$value = array($value);
 
-						if ( $value[0] instanceof \Closure )
+						if ( $value[0] instanceof \Closure || $value[0] instanceof \Prototype )
 							return call_user_func_array($value[0], $args);
 						else
 							throw new BadMethodCallException(sprintf('%s is not closure or prototype', $propertyName));
