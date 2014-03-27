@@ -135,17 +135,3 @@ if ( $poked )
 ## Contributions
 
 You are free to fork and contribute to this project.
-
-## Release notes
-
-* Version 1.2.0
-  * Only closures are acceptable for calls
-  * Added method Prototype::closure() to transform callables in closures
-  * Removed serialization and iteration support
-  * Added Prototype::data() method
-  * Added support for normal, dynamic and lazy properties
-
-* Version 1.1.0
-  * Added support for deal with the prototypes as closures
-  * Added IteratorAggregate interface
-  * Removed restriction to closures; now, all callable types are supported
