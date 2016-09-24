@@ -1,7 +1,7 @@
 <?php
 class PrototypeTest extends PHPUnit_Framework_TestCase
 {
-	private function expectException($exceptionClass, \Closure $test) {
+	private function _expectException($exceptionClass, \Closure $test) {
 		$ok = false;
 		try {
 			$test($this);
@@ -68,7 +68,7 @@ class PrototypeTest extends PHPUnit_Framework_TestCase
 		$this->assertEquals('Hello, John Doe', $obj->a('John Doe'));
 
 		// invalid call
-		$this->expectException('BadMethodCallException', function() use($obj) {
+		$this->_expectException('BadMethodCallException', function() use($obj) {
 			$obj->a = 1;
 			$obj->a();
 			exit;
@@ -119,7 +119,7 @@ class PrototypeTest extends PHPUnit_Framework_TestCase
 		$this->assertEquals('Hello, John Doe', $obj->d('John Doe'));
 		$this->assertNotEquals($obj->e(), $obj->e());
 
-		$this->expectException('BadMethodCallException', function() use($obj) {
+		$this->_expectException('BadMethodCallException', function() use($obj) {
 			$obj->b();
 		});
 	}
@@ -137,7 +137,7 @@ class PrototypeTest extends PHPUnit_Framework_TestCase
 		$obj->c = Prototype::lazy(function() {
 			return rand();
 		});
-		
+
 		// get
 		$this->assertEquals(1, $obj->a);
 		$this->assertEquals(1, $obj->b);
@@ -165,7 +165,7 @@ class PrototypeTest extends PHPUnit_Framework_TestCase
 
 		$this->assertEquals($obj->d(), $obj->d());
 
-		$this->expectException('BadMethodCallException', function() use($obj) {
+		$this->_expectException('BadMethodCallException', function() use($obj) {
 			$obj->b();
 		});
 	}
@@ -184,7 +184,7 @@ class PrototypeTest extends PHPUnit_Framework_TestCase
 
 		$this->assertEquals('invoked as function', $obj());
 
-		$this->expectException('BadMethodCallException', function() {
+		$this->_expectException('BadMethodCallException', function() {
 			$obj = new Prototype();
 			$obj();
 		});
