@@ -23,8 +23,8 @@
         "evert/phpdoc-md": "^0.2.0"
     },
     "autoload": {
-        "psr-0": {
-            "Prototype": "src/"
+        "psr-4": {
+            "TassoEvan\\Prototype\\": "src/"
         }
     },
     "scripts": {

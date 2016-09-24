@@ -1,4 +1,4 @@
-<phpunit backupGlobals="true" backupStaticAttributes="false" bootstrap="tests/bootstrap.php" cacheTokens="false" colors="true">
+<phpunit backupGlobals="true" backupStaticAttributes="false" cacheTokens="false" colors="true">
 
 <testsuites>
 	<testsuite name="Prototype tests">

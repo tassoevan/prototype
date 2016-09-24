@@ -1,41 +1,14 @@
 <?php
-/**
-* Prototype - Simple prototype-based programming in PHP
-*
-* @author Tasso Evangelista <tassoevan@tassoevan.me>
-* @copyright 2013 Tasso Evangelista
-* @link http://github.com/tassoevan/prototype
-* @license http://github.com/tassoevan/prototype/LICENSE
-* @version 1.2.2
-* @package Prototype
-*
-* MIT LICENSE
-*
-* Permission is hereby granted, free of charge, to any person obtaining
-* a copy of this software and associated documentation files (the
-* "Software"), to deal in the Software without restriction, including
-* without limitation the rights to use, copy, modify, merge, publish,
-* distribute, sublicense, and/or sell copies of the Software, and to
-* permit persons to whom the Software is furnished to do so, subject to
-* the following conditions:
-*
-* The above copyright notice and this permission notice shall be
-* included in all copies or substantial portions of the Software.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-* NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-* LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-* OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-* WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+namespace TassoEvan\Prototype;
+
+use \ArrayAccess;
+use \BadMethodCallException;
+use \Closure;
 
 /**
- * The <code>Prototype</code> class represents objects that hava properties dinamicly modified.
- * @author Tasso Evangelista
+ * This class represents objects with properties with custom accessors and mutators.
  */
-class Prototype implements \ArrayAccess
+class Prototype implements ArrayAccess
 {
 	private static $accessClosures;
 
@@ -47,14 +20,14 @@ class Prototype implements \ArrayAccess
 		if ( empty(self::$accessClosures) ) {
 			self::$accessClosures = array(
 				'normal' => array(
-					'get' => function(\Prototype $obj, &$value) {
+					'get' => function(Prototype $obj, &$value) {
 						return $value;
 					},
-					'set' => function(\Prototype $obj, &$variable, &$value) {
+					'set' => function(Prototype $obj, &$variable, &$value) {
 						$variable = $value;
 					},
-					'call' => function(\Prototype $obj, $propertyName, &$value, array &$args) {
-						if ( $value instanceof \Closure || $value instanceof \Prototype )
+					'call' => function(Prototype $obj, $propertyName, &$value, array &$args) {
+						if ( $value instanceof Closure || $value instanceof Prototype )
 							return call_user_func_array($value, $args);
 						else
 							throw new BadMethodCallException(sprintf('%s is not a closure or prototype', $propertyName));
@@ -62,21 +35,21 @@ class Prototype implements \ArrayAccess
 				),
 
 				'dynamic' => array(
-					'get' => function(\Prototype $obj, &$value) {
+					'get' => function(Prototype $obj, &$value) {
 						$closure = &$value[0];
 
-						if ( $closure instanceof \Closure )
+						if ( $closure instanceof Closure )
 							return $closure();
 						else
 							return null;
 					},
-					'set' => function(\Prototype $obj, &$variable, &$value) {
+					'set' => function(Prototype $obj, &$variable, &$value) {
 						$closure = $variable[1];
-						if ( $closure instanceof \Closure )
+						if ( $closure instanceof Closure )
 							$closure($value);
 					},
-					'call' => function(\Prototype $obj, $propertyName, &$value, array &$args) {
-						if ( $value[2] instanceof \Closure || $value[2] instanceof \Prototype )
+					'call' => function(Prototype $obj, $propertyName, &$value, array &$args) {
+						if ( $value[2] instanceof Closure || $value[2] instanceof Prototype )
 							return call_user_func_array($value[2], $args);
 						else
 							throw new BadMethodCallException(sprintf('%s is not closure or prototype', $propertyName));
@@ -84,20 +57,20 @@ class Prototype implements \ArrayAccess
 				),
 
 				'lazy' => array(
-					'get' => function(\Prototype $obj, &$value) {
-						if ( $value instanceof \Closure )
+					'get' => function(Prototype $obj, &$value) {
+						if ( $value instanceof Closure )
 							$value = array($value());
-						
+
 						return $value[0];
 					},
-					'set' => function(\Prototype $obj, &$variable, &$value) {
+					'set' => function(Prototype $obj, &$variable, &$value) {
 						$variable = array($value);
 					},
-					'call' => function(\Prototype $obj, $propertyName, &$value, array &$args) {
-						if ( $value instanceof \Closure || $value instanceof \Prototype )
+					'call' => function(Prototype $obj, $propertyName, &$value, array &$args) {
+						if ( $value instanceof Closure || $value instanceof Prototype )
 							$value = array($value);
 
-						if ( $value[0] instanceof \Closure || $value[0] instanceof \Prototype )
+						if ( $value[0] instanceof Closure || $value[0] instanceof Prototype )
 							return call_user_func_array($value[0], $args);
 						else
 							throw new BadMethodCallException(sprintf('%s is not closure or prototype', $propertyName));
@@ -142,7 +115,7 @@ class Prototype implements \ArrayAccess
 	 * @param Closure $generator
 	 * @return array
 	 */
-	public static function lazy(\Closure $generator)
+	public static function lazy(Closure $generator)
 	{
 		self::initiliazeAccessClosures();
 		return array(self::$accessClosures['lazy'], $generator);
@@ -182,7 +155,7 @@ class Prototype implements \ArrayAccess
 	 * Constructs a new Prototype instance. If a closure is provided, the own prototype becomes callable via __invoke() method.
 	 * @param Closure|null $invokable the closure that may be invoked
 	 */
-	public function __construct(\Closure $invokable = null)
+	public function __construct(Closure $invokable = null)
 	{
 		self::initiliazeAccessClosures();
 		$this->invokable = $invokable;
@@ -280,7 +253,7 @@ class Prototype implements \ArrayAccess
 	 */
 	public function __invoke()
 	{
-		if ( $this->invokable instanceof \Closure )
+		if ( $this->invokable instanceof Closure )
 			return call_user_func_array($this->invokable, func_get_args());
 		else
 			throw new BadMethodCallException('Prototype is not invokable');

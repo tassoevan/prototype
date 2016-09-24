@@ -1,4 +1,6 @@
 <?php
+use TassoEvan\Prototype\Prototype;
+
 class PrototypeTest extends PHPUnit_Framework_TestCase
 {
 	private function _expectException($exceptionClass, \Closure $test) {
