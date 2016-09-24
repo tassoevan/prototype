@@ -6,7 +6,7 @@ use \BadMethodCallException;
 use \Closure;
 
 /**
- * This class represents objects with properties with custom accessors and mutators.
+ * This class represents objects whose properties have custom accessors.
  */
 class Prototype implements ArrayAccess
 {
@@ -18,62 +18,44 @@ class Prototype implements ArrayAccess
 	private static function initiliazeAccessClosures()
 	{
 		if ( empty(self::$accessClosures) ) {
+			$normal = new NormalAccessor();
+			$dynamic = new DynamicAccessor();
+			$lazy = new LazyAccessor();
+
 			self::$accessClosures = array(
 				'normal' => array(
-					'get' => function(Prototype $obj, &$value) {
-						return $value;
+					'get' => function(Prototype $obj, &$property) use ($normal) {
+						return $normal->get($obj, $property);
 					},
-					'set' => function(Prototype $obj, &$variable, &$value) {
-						$variable = $value;
+					'set' => function(Prototype $obj, &$property, &$value) use ($normal) {
+						return $normal->set($obj, $property, $value);
 					},
-					'call' => function(Prototype $obj, $propertyName, &$value, array &$args) {
-						if ( $value instanceof Closure || $value instanceof Prototype )
-							return call_user_func_array($value, $args);
-						else
-							throw new BadMethodCallException(sprintf('%s is not a closure or prototype', $propertyName));
+					'call' => function(Prototype $obj, $propertyName, &$property, array &$args) use ($normal) {
+						return $normal->invoke($obj, $property, ...$args);
 					}
 				),
 
 				'dynamic' => array(
-					'get' => function(Prototype $obj, &$value) {
-						$closure = &$value[0];
-
-						if ( $closure instanceof Closure )
-							return $closure();
-						else
-							return null;
+					'get' => function(Prototype $obj, &$property) use ($dynamic) {
+						return $dynamic->get($obj, $property);
 					},
-					'set' => function(Prototype $obj, &$variable, &$value) {
-						$closure = $variable[1];
-						if ( $closure instanceof Closure )
-							$closure($value);
+					'set' => function(Prototype $obj, &$property, &$value) use ($dynamic) {
+						return $dynamic->set($obj, $property, $value);
 					},
-					'call' => function(Prototype $obj, $propertyName, &$value, array &$args) {
-						if ( $value[2] instanceof Closure || $value[2] instanceof Prototype )
-							return call_user_func_array($value[2], $args);
-						else
-							throw new BadMethodCallException(sprintf('%s is not closure or prototype', $propertyName));
+					'call' => function(Prototype $obj, $propertyName, &$property, array &$args) use ($dynamic) {
+						return $dynamic->invoke($obj, $property, ...$args);
 					}
 				),
 
 				'lazy' => array(
-					'get' => function(Prototype $obj, &$value) {
-						if ( $value instanceof Closure )
-							$value = array($value());
-
-						return $value[0];
+					'get' => function(Prototype $obj, &$property) use ($lazy) {
+						return $lazy->get($obj, $property);
 					},
-					'set' => function(Prototype $obj, &$variable, &$value) {
-						$variable = array($value);
+					'set' => function(Prototype $obj, &$property, &$value) use ($lazy) {
+						return $lazy->set($obj, $property, $value);
 					},
-					'call' => function(Prototype $obj, $propertyName, &$value, array &$args) {
-						if ( $value instanceof Closure || $value instanceof Prototype )
-							$value = array($value);
-
-						if ( $value[0] instanceof Closure || $value[0] instanceof Prototype )
-							return call_user_func_array($value[0], $args);
-						else
-							throw new BadMethodCallException(sprintf('%s is not closure or prototype', $propertyName));
+					'call' => function(Prototype $obj, $propertyName, &$property, array &$args) use ($lazy) {
+						return $lazy->invoke($obj, $property, ...$args);
 					}
 				)
 			);
