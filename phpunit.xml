@@ -1,9 +1,9 @@
-<phpunit backupGlobals="true" backupStaticAttributes="false" cacheTokens="false" colors="true">
-
-<testsuites>
-	<testsuite name="Prototype tests">
-		<directory suffix="Test.php">tests</directory>
-	</testsuite>
-</testsuites>
-
+<phpunit
+    bootstrap="vendor/autoload.php"
+    colors="true">
+    <testsuites>
+        <testsuite>
+    	   <directory suffix="Test.php">tests</directory>
+        </testsuite>
+    </testsuites>
 </phpunit>
