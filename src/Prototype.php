@@ -10,58 +10,6 @@ use \Closure;
  */
 class Prototype implements ArrayAccess
 {
-	private static $accessClosures;
-
-	/**
-	 * Initialize the internal access closures, used to get, set and call properties from prototypes
-	 */
-	private static function initiliazeAccessClosures()
-	{
-		if ( empty(self::$accessClosures) ) {
-			$normal = new NormalAccessor();
-			$dynamic = new DynamicAccessor();
-			$lazy = new LazyAccessor();
-
-			self::$accessClosures = array(
-				'normal' => array(
-					'get' => function(Prototype $obj, &$property) use ($normal) {
-						return $normal->get($obj, $property);
-					},
-					'set' => function(Prototype $obj, &$property, &$value) use ($normal) {
-						return $normal->set($obj, $property, $value);
-					},
-					'call' => function(Prototype $obj, $propertyName, &$property, array &$args) use ($normal) {
-						return $normal->invoke($obj, $property, ...$args);
-					}
-				),
-
-				'dynamic' => array(
-					'get' => function(Prototype $obj, &$property) use ($dynamic) {
-						return $dynamic->get($obj, $property);
-					},
-					'set' => function(Prototype $obj, &$property, &$value) use ($dynamic) {
-						return $dynamic->set($obj, $property, $value);
-					},
-					'call' => function(Prototype $obj, $propertyName, &$property, array &$args) use ($dynamic) {
-						return $dynamic->invoke($obj, $property, ...$args);
-					}
-				),
-
-				'lazy' => array(
-					'get' => function(Prototype $obj, &$property) use ($lazy) {
-						return $lazy->get($obj, $property);
-					},
-					'set' => function(Prototype $obj, &$property, &$value) use ($lazy) {
-						return $lazy->set($obj, $property, $value);
-					},
-					'call' => function(Prototype $obj, $propertyName, &$property, array &$args) use ($lazy) {
-						return $lazy->invoke($obj, $property, ...$args);
-					}
-				)
-			);
-		}
-	}
-
 	/**
 	 * Returns a pair containing <code>normal</code> access closures and the value.
 	 * <code>Normal</code> access closures performs simple data storage
@@ -70,8 +18,7 @@ class Prototype implements ArrayAccess
 	 */
 	public static function normal($value)
 	{
-		self::initiliazeAccessClosures();
-		return array(self::$accessClosures['normal'], $value);
+		return [new NormalAccessor(), $value];
 	}
 
 	/**
@@ -79,15 +26,14 @@ class Prototype implements ArrayAccess
 	 * <code>Dynamic</code> access closures always execute the passed <code>get</code>,
 	 * <code>set</code> and <code>call</code> closures/prototypes for dynamic value
 	 * creation, value storage and function call, respectively
-	 * @param Closure|Prototype $get
-	 * @param Closure|Prototype $set
-	 * @param Closure|Prototype $call
+	 * @param callable $get
+	 * @param callable $set
+	 * @param callable $call
 	 * @return array
 	 */
-	public static function dynamic($get, $set = null, $call = null)
+	public static function dynamic(callable $get = null, callable $set = null, callable $call = null)
 	{
-		self::initiliazeAccessClosures();
-		return array(self::$accessClosures['dynamic'], array($get, $set, $call));
+		return [new DynamicAccessor(), array($get, $set, $call)];
 	}
 
 	/**
@@ -99,8 +45,7 @@ class Prototype implements ArrayAccess
 	 */
 	public static function lazy(Closure $generator)
 	{
-		self::initiliazeAccessClosures();
-		return array(self::$accessClosures['lazy'], $generator);
+		return [new LazyAccessor(), $generator];
 	}
 
 	/**
@@ -131,16 +76,17 @@ class Prototype implements ArrayAccess
 	}
 
 	private $invokable;
-	private $properties = array();
+	private $properties = [];
 
 	/**
-	 * Constructs a new Prototype instance. If a closure is provided, the own prototype becomes callable via __invoke() method.
+	 * If a closure is provided, the own prototype becomes callable via __invoke() method.
 	 * @param Closure|null $invokable the closure that may be invoked
 	 */
 	public function __construct(Closure $invokable = null)
 	{
-		self::initiliazeAccessClosures();
-		$this->invokable = $invokable;
+		if ($invokable !== null) {
+			$this->invokable = $invokable->bindTo($this);
+		}
 	}
 
 	/**
@@ -164,8 +110,7 @@ class Prototype implements ArrayAccess
 	 */
 	public function offsetGet($propertyName)
 	{
-		$accessClosure = $this->properties[$propertyName][0]['get'];
-		return $accessClosure($this, $this->properties[$propertyName][1]);
+		return $this->properties[$propertyName][0]->get($this, $this->properties[$propertyName][1]);
 	}
 
 	/**
@@ -173,16 +118,17 @@ class Prototype implements ArrayAccess
 	 */
 	public function offsetSet($propertyName, $value)
 	{
-		$valueIsPrototypeSet = is_array($value) && count($value) == 2 && isset($value[0]) && in_array($value[0], self::$accessClosures, true);
+		$valueIsPrototypeSet = is_array($value) && count($value) == 2 && isset($value[0]) && $value[0] instanceof Accessor;
 
-		if ( $valueIsPrototypeSet )
+		if ( $valueIsPrototypeSet ) {
 			$this->properties[$propertyName] = $value;
-		elseif ( isset($this->properties[$propertyName]) ) {
-			$accessClosure = &$this->properties[$propertyName][0]['set'];
-			$accessClosure($this, $this->properties[$propertyName][1], $value);
 		}
-		else
-			$this->properties[$propertyName] = Prototype::normal($value);
+		elseif ( isset($this->properties[$propertyName]) ) {
+			$this->properties[$propertyName][0]->set($this, $this->properties[$propertyName][1], $value);
+		}
+		else {
+			$this->properties[$propertyName] = [new NormalAccessor(), $value];
+		}
 	}
 
 	/**
@@ -222,12 +168,10 @@ class Prototype implements ArrayAccess
 	 */
 	public function __call($propertyName, array $args)
 	{
-		$accessClosure = &$this->properties[$propertyName][0]['call'];
-
-		if ( !isset($accessClosure) )
+		if ( !isset($this->properties[$propertyName]) )
 			throw new BadMethodCallException(sprintf('%s is undefined', $propertyName));
 
-		return $accessClosure($this, $propertyName, $this->properties[$propertyName][1], $args);
+		return $this->properties[$propertyName][0]->invoke($this, $this->properties[$propertyName][1], ...$args);
 	}
 
 	/**
