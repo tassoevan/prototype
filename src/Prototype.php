@@ -11,41 +11,51 @@ use \Closure;
 class Prototype implements ArrayAccess
 {
 	/**
-	 * Returns a pair containing <code>normal</code> access closures and the value.
-	 * <code>Normal</code> access closures performs simple data storage
 	 * @param mixed $value
-	 * @return array
+	 * @return TassoEvan\Prototype\NormalProperty
 	 */
 	public static function normal($value)
 	{
-		return [new NormalAccessor(), $value];
+		return new NormalProperty($value);
 	}
 
 	/**
-	 * Returns a pair containing <code>dynamic</code> access closures and the value.
-	 * <code>Dynamic</code> access closures always execute the passed <code>get</code>,
-	 * <code>set</code> and <code>call</code> closures/prototypes for dynamic value
-	 * creation, value storage and function call, respectively
-	 * @param callable $get
-	 * @param callable $set
-	 * @param callable $call
-	 * @return array
+	 * @param mixed $value
+	 * @return TassoEvan\Prototype\ReadOnlyProperty
 	 */
-	public static function dynamic(callable $get = null, callable $set = null, callable $call = null)
+	public static function readOnly($value, $strict = false)
 	{
-		return [new DynamicAccessor(), array($get, $set, $call)];
+		return new ReadOnlyProperty($value, $strict);
 	}
 
 	/**
-	 * Returns a pair containing <code>lazy</code> access closures and the value.
-	 * <code>lazy</code> access closures grants that stored data only will be
-	 * generated on first access to property, performing lazy loading
-	 * @param Closure $generator
-	 * @return array
+	 * @param callable $loader
+	 * @return TassoEvan\Prototype\LazyProperty
 	 */
-	public static function lazy(Closure $generator)
+	public static function lazy(callable $loader)
 	{
-		return [new LazyAccessor(), $generator];
+		return new LazyProperty($loader);
+	}
+
+	/**
+	 * @param callable $getMiddleware
+	 * @param callable $setMiddleware
+	 * @param mixed $propertyOrValue
+	 * @return TassoEvan\Prototype\ProxyProperty
+	 */
+	public static function proxy(callable $getMiddleware = null, callable $setMiddleware = null, $propertyOrValue = null)
+	{
+		return new ProxyProperty($getMiddleware, $setMiddleware, $propertyOrValue);
+	}
+
+	/**
+	 * @param callable $getter
+	 * @param callable $setter
+	 * @return TassoEvan\Prototype\DynamicProperty
+	 */
+	public static function dynamic(callable $getter = null, callable $setter = null)
+	{
+		return new DynamicProperty($getter, $setter);
 	}
 
 	/**
@@ -115,7 +125,9 @@ class Prototype implements ArrayAccess
 	 */
 	public function offsetGet($propertyName)
 	{
-		return $this->properties[$propertyName][0]->get($this, $this->properties[$propertyName][1]);
+		$property = &$this->properties[$propertyName];
+
+		return $property->get();
 	}
 
 	/**
@@ -123,16 +135,17 @@ class Prototype implements ArrayAccess
 	 */
 	public function offsetSet($propertyName, $value)
 	{
-		$valueIsPrototypeSet = is_array($value) && count($value) == 2 && isset($value[0]) && $value[0] instanceof Accessor;
+		$property = &$this->properties[$propertyName];
 
-		if ( $valueIsPrototypeSet ) {
-			$this->properties[$propertyName] = $value;
+		if ($value instanceof Property) {
+			$value->attachTo($this);
+			return $property = $value;
 		}
-		elseif ( isset($this->properties[$propertyName]) ) {
-			$this->properties[$propertyName][0]->set($this, $this->properties[$propertyName][1], $value);
+		elseif ($property instanceof Property) {
+			return $property->set($value);
 		}
 		else {
-			$this->properties[$propertyName] = [new NormalAccessor(), $value];
+			$this->properties[$propertyName] = new NormalProperty($value);
 		}
 	}
 
@@ -173,10 +186,19 @@ class Prototype implements ArrayAccess
 	 */
 	public function __call($propertyName, array $args)
 	{
-		if ( !isset($this->properties[$propertyName]) )
-			throw new BadMethodCallException(sprintf('%s is undefined', $propertyName));
+		$property = &$this->properties[$propertyName];
 
-		return $this->properties[$propertyName][0]->invoke($this, $this->properties[$propertyName][1], ...$args);
+		if (!$this->offsetExists($propertyName)) {
+			throw new BadMethodCallException(sprintf('%s is undefined', $propertyName));
+		}
+
+		$callable = $this->offsetGet($propertyName);
+
+		if (!is_callable($callable)) {
+			throw new BadMethodCallException(sprintf('%s is not callable', $propertyName));
+		}
+
+		return call_user_func_array($callable, $args);
 	}
 
 	/**
