@@ -180,16 +180,49 @@ class PrototypeTest extends PHPUnit_Framework_TestCase
 
 	public function testInvoke()
 	{
-		$obj = new Prototype(function() {
-			return 'invoked as function';
+		$uniqid = uniqid();
+
+		$obj = new Prototype(function() use ($uniqid) {
+			return $uniqid;
 		});
 
-		$this->assertEquals('invoked as function', $obj());
+		$this->assertEquals($uniqid, $obj());
+	}
 
-		$this->_expectException('BadMethodCallException', function() {
-			$obj = new Prototype();
-			$obj();
+	public function testInvokeWithThisReference()
+	{
+		$obj = new Prototype(function () use (&$obj) {
+			return $this === $obj;
 		});
+
+		$this->assertTrue($obj());
+
+		$obj = new Prototype(function () {
+			$this->a = true;
+			$this->b = Prototype::dynamic(function () {
+				return false;
+			});
+		});
+
+		$obj();
+
+		$this->assertTrue($obj->a);
+		$this->assertFalse($obj->b);
+	}
+
+	public function testInvokeWithNonClosures()
+	{
+		$obj = new Prototype('strpos');
+
+		$this->assertEquals($obj('Prototype', 'type'), 5);
+	}
+
+	public function testInvokeNonInvokablePrototype()
+	{
+		$this->setExpectedException(BadMethodCallException::class);
+
+		$obj = new Prototype();
+		$obj();
 	}
 
 	public function testData()

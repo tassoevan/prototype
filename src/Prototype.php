@@ -79,13 +79,18 @@ class Prototype implements ArrayAccess
 	private $properties = [];
 
 	/**
-	 * If a closure is provided, the own prototype becomes callable via __invoke() method.
-	 * @param Closure|null $invokable the closure that may be invoked
+	 * If a callable is provided, the own prototype becomes callable via __invoke() method.
+	 * @param callable $invokable the closure that may be invoked
 	 */
-	public function __construct(Closure $invokable = null)
+	public function __construct(callable $invokable = null)
 	{
 		if ($invokable !== null) {
-			$this->invokable = $invokable->bindTo($this);
+			if ($invokable instanceof Closure) {
+				$this->invokable = $invokable->bindTo($this);
+			}
+			else {
+				$this->invokable = $invokable;
+			}
 		}
 	}
 
@@ -177,11 +182,13 @@ class Prototype implements ArrayAccess
 	/**
 	 * @see __invoke()
 	 */
-	public function __invoke()
+	public function __invoke(...$args)
 	{
-		if ( $this->invokable instanceof Closure )
-			return call_user_func_array($this->invokable, func_get_args());
-		else
+		if (is_callable($this->invokable)) {
+			return call_user_func_array($this->invokable, $args);
+		}
+		else {
 			throw new BadMethodCallException('Prototype is not invokable');
+		}
 	}
 }
