@@ -20,12 +20,9 @@ class NormalAccessor implements Accessor
 
     public function &invoke(Prototype $obj, &$property, &...$args)
     {
-        if ($property instanceof Closure) {
-            $value = $property->call($obj, ...$args);
+        if ($property instanceof Closure || (is_object($property) && method_exists($property, '__invoke'))) {
+            $value = call_user_func_array($property, $args);
             return $value;
-        }
-        elseif (is_object($property) && method_exists($property, '__invoke')) {
-            return call_user_func_array($property, $args);
         }
         else {
             throw new BadMethodCallException();
